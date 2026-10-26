@@ -46,7 +46,8 @@ Commandes
 |---|---|---|
 | Température, Consigne, Thermostat | info / action | Température ambiante (sonde du poêle) et consigne |
 | On, Off, Actif, Etat | action / info | Marche, arrêt, état détaillé (14 états) |
-| Régler puissance, Puissance consigne, Puissance | action / info | Puissance maximale demandée (1 à 5) et puissance réellement appliquée |
+| Régler puissance, Puissance consigne, Puissance | action / info | Puissance maximale demandée (1 à 5) et allure réellement appliquée (1 à 5) |
+| Puissance (kW) | info | Puissance de chauffe instantanée annoncée par le contrôleur, ramenée à 0 poêle éteint (historisée) |
 | Pellet | info | Niveau estimé du réservoir (%) |
 | Erreur, Code erreur, Alerte, Code alerte | info | Erreurs (E1xx, E2xx) et alertes (A0xx) du poêle, avec libellé |
 | Maintenance, Allumages, Allumages ratés, Surchauffes, Chauffage, Secteur | info | Statistiques et heures avant entretien |
@@ -57,8 +58,10 @@ Commandes
 
 Remarques :
 
-- La puissance réglée est un **plafond** : le poêle module lui-même sa puissance réelle en
-  approchant de la consigne.
+- La puissance réglée est un **plafond** : le poêle module lui-même son allure en approchant de
+  la consigne. *Puissance (kW)* suit cette modulation plus finement que l'allure (par paliers).
+- Estimation de la consommation : l'énergie (moyenne de *Puissance (kW)* × durée de chauffe,
+  en kWh) divisée par ~4,8 kWh/kg donne les kilos de pellets brûlés (ordre de grandeur).
 - La sonde d'ambiance du poêle est influencée par l'appareil (plus haute en chauffe, plus basse à
   l'arrêt) ; une sonde indépendante est préférable pour la régulation.
 - Non disponibles ou instables sur certains contrôleurs, donc non intégrés : mode éco, vitesse du

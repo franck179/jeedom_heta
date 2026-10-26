@@ -334,6 +334,7 @@ class heta extends eqLogic {
         if (is_object($fumees)) {
             $fumees->remove();   // toujours à 0 sur ce poêle
         }
+        $this->createCmdIfMissing('puissanceKw', 'Puissance (kW)', 'info', 'numeric', array('unite' => 'kW', 'historique' => 1));
         $this->createCmdIfMissing('extracteur', 'Extracteur', 'info', 'numeric', array('unite' => 'tr/min', 'historique' => 1));
         $this->createCmdIfMissing('depression', 'Dépression', 'info', 'numeric', array('historique' => 1));
         $this->createCmdIfMissing('signalWifi', 'Signal Wi-Fi', 'info', 'numeric', array('unite' => '%', 'historique' => 1));
@@ -529,6 +530,7 @@ class heta extends eqLogic {
         $this->updateIfSet('erreurCode',     $pHetaValue->erreurCode ?? null);
         $this->updateIfSet('alerte',         $pHetaValue->alerte ?? null);
         $this->updateIfSet('alerteCode',     $pHetaValue->alerteCode ?? null);
+        $this->updateIfSet('puissanceKw',    $pHetaValue->puissanceKw ?? null);
         $this->updateIfSet('extracteur',     $pHetaValue->extracteur ?? null);
         $this->updateIfSet('depression',     $pHetaValue->depression ?? null);
         $this->updateIfSet('signalWifi',     $pHetaValue->signalWifi ?? null);

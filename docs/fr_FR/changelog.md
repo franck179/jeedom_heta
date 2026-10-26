@@ -79,4 +79,9 @@ Version 2.1 - octobre 2026
     affiche le CSS de police réduite (Etat, Erreur, Alerte) avec les bons identifiants
 -   Documentation : affichage, remise en place après réinstallation, dépannage détaillé
 
+Version 2.2 - octobre 2026
+---
+
+-   Ajout : Puissance (kW), puissance de chauffe instantanée, historisée
+
 [Documentation](index.md)

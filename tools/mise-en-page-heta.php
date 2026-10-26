@@ -23,7 +23,7 @@ $visibles = array(
 
 // Commandes masquées, dans cet ordre
 $masquees = array(
-    'actif', 'puissanceConsigne', 'extracteur', 'depression', 'foyer', 'ventilation',
+    'actif', 'puissanceConsigne', 'puissanceKw', 'extracteur', 'depression', 'foyer', 'ventilation',
     'timeToService', 'allumage', 'tChauffe', 'secteur', 'surchauffes', 'allumagesRates',
     'signalWifi', 'dernierContact', 'ecartHorloge', 'syncHorloge',
     'timerActif', 'timerOn', 'timerOff',

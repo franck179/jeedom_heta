@@ -86,6 +86,7 @@ class hetaResult {
     public $pellet;               // niveau réservoir (%)
     public $puissance;
     public $puissanceConsigne;    // puissance demandée (1 à 5)
+    public $puissanceKw;          // puissance de chauffe instantanée (kW)
     public $ventilation;
     public $statistic = array();  // statistiques de fonctionnement
     public $temperatureInterne;   // température foyer
@@ -124,6 +125,7 @@ class hetaResult {
 
         $this->puissance = $pData->controller->power->actualPower ?? null;
         $this->puissanceConsigne = $pData->controller->power->setPower ?? null;
+        $this->puissanceKw = isset($pData->controller->power->kw) ? round((float) $pData->controller->power->kw, 1) : null;
 
         $fan = $this->getFan(1);
         $this->ventilation = $fan->speed ?? null;
@@ -133,6 +135,9 @@ class hetaResult {
 
         $c = $pData->controller;
         $this->actif = in_array($status, self::ETATS_ARRET) ? 0 : 1;
+        if ($this->actif == 0 && $this->puissanceKw !== null) {
+            $this->puissanceKw = 0;   // à l'arrêt, le contrôleur renvoie une valeur fixe (2 kW) qui n'est pas une chauffe
+        }
         $this->erreurCode = $c->error ?? null;
         $this->erreur = self::libelle($this->erreurCode, self::ERREURS, 'E');
         $this->alerteCode = $c->alert ?? null;
