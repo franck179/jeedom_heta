@@ -28,7 +28,7 @@ class heta extends eqLogic {
     /*
      * Fonction exécutée automatiquement toutes les minutes par Jeedom
      */
-    public static function cron($_eqLogic_id = null) {
+    public static function cron5($_eqLogic_id = null) {
 		if ($_eqLogic_id == null) {
 			$eqLogics = self::byType('heta', true);
 		} else {
@@ -45,6 +45,24 @@ class heta extends eqLogic {
 				$cmd->execCmd(); // la commande existe on la lance
 */			}
 		}
+    }
+
+    // Contrôle horaire : resynchronise l'horloge du poêle si elle dérive (changement d'heure...)
+    public static function cronHourly() {
+        foreach (self::byType('heta', true) as $eqLogic) {
+            if ($eqLogic->getIsEnable() != 1) {
+                continue;
+            }
+            $cmd = $eqLogic->getCmd(null, 'ecartHorloge');
+            if (!is_object($cmd)) {
+                continue;
+            }
+            $ecart = $cmd->execCmd();
+            if (is_numeric($ecart) && abs($ecart) >= 3) {
+                log::add('heta', 'info', $eqLogic->getHumanName() . ' horloge du poêle décalée de ' . $ecart . ' min : synchronisation');
+                $eqLogic->syncHetaClock();
+            }
+        }
     }
 
     /*
@@ -301,6 +319,31 @@ class heta extends eqLogic {
 		$tChauffe->setSubType('numeric');
         $tChauffe->save();
         
+        // --- Commandes ajoutées par patch-extras ---
+        $this->createCmdIfMissing('erreur', 'Erreur', 'info', 'string', array('visible' => 1, 'template' => 'line'));
+        $this->createCmdIfMissing('erreurCode', 'Code erreur', 'info', 'numeric', array('historique' => 1));
+        $this->createCmdIfMissing('alerte', 'Alerte', 'info', 'string', array('visible' => 1, 'template' => 'line'));
+        $this->createCmdIfMissing('alerteCode', 'Code alerte', 'info', 'numeric', array('historique' => 1));
+        $fumees = $this->getCmd(null, 'fumees');
+        if (is_object($fumees)) {
+            $fumees->remove();   // toujours à 0 sur ce poêle
+        }
+        $this->createCmdIfMissing('extracteur', 'Extracteur', 'info', 'numeric', array('unite' => 'tr/min', 'historique' => 1));
+        $this->createCmdIfMissing('depression', 'Dépression', 'info', 'numeric', array('historique' => 1));
+        $this->createCmdIfMissing('signalWifi', 'Signal Wi-Fi', 'info', 'numeric', array('unite' => '%', 'historique' => 1));
+        $this->createCmdIfMissing('dernierContact', 'Dernier contact', 'info', 'numeric', array('unite' => 's'));
+        $this->createCmdIfMissing('ecartHorloge', 'Écart horloge', 'info', 'numeric', array('unite' => 'min'));
+        $this->createCmdIfMissing('surchauffes', 'Surchauffes', 'info', 'numeric');
+        $this->createCmdIfMissing('allumagesRates', 'Allumages ratés', 'info', 'numeric');
+        $timerActif = $this->createCmdIfMissing('timerActif', 'Programmation hebdo', 'info', 'binary');
+        $this->createCmdIfMissing('syncHorloge', 'Synchroniser horloge', 'action', 'other');
+        $timerOn = $this->createCmdIfMissing('timerOn', 'Programmation On', 'action', 'other');
+        $timerOn->setValue($timerActif->getId());
+        $timerOn->save();
+        $timerOff = $this->createCmdIfMissing('timerOff', 'Programmation Off', 'action', 'other');
+        $timerOff->setValue($timerActif->getId());
+        $timerOff->save();
+
         // COMMANDE rafraichissement des données
 		$refresh = $this->getCmd(null, 'refresh');
 		if (!is_object($refresh)) {
@@ -332,6 +375,36 @@ class heta extends eqLogic {
         $thermostat->setValue($consigne->getId());
 		$thermostat->save();
         
+        // INFO Puissance demandée
+        $puissanceConsigne = $this->getCmd(null, 'puissanceConsigne');
+        if (!is_object($puissanceConsigne)) {
+            $puissanceConsigne = new hetaCmd();
+            $puissanceConsigne->setLogicalId('puissanceConsigne');
+            $puissanceConsigne->setIsVisible(0);
+            $puissanceConsigne->setName(__('Puissance consigne', __FILE__));
+            $puissanceConsigne->setConfiguration('minValue', 1);
+            $puissanceConsigne->setConfiguration('maxValue', 5);
+        }
+        $puissanceConsigne->setEqLogic_id($this->getId());
+        $puissanceConsigne->setType('info');
+        $puissanceConsigne->setSubType('numeric');
+        $puissanceConsigne->save();
+
+        // COMMANDE réglage de la puissance (1 à 5)
+        $setPuissance = $this->getCmd(null, 'setPuissance');
+        if (!is_object($setPuissance)) {
+            $setPuissance = new hetaCmd();
+            $setPuissance->setLogicalId('setPuissance');
+            $setPuissance->setName(__('Régler puissance', __FILE__));
+            $setPuissance->setConfiguration('minValue', 1);
+            $setPuissance->setConfiguration('maxValue', 5);
+        }
+        $setPuissance->setEqLogic_id($this->getId());
+        $setPuissance->setType('action');
+        $setPuissance->setSubType('slider');
+        $setPuissance->setValue($puissanceConsigne->getId());
+        $setPuissance->save();
+
         //COMMANDE arret
 		$off = $this->getCmd(null, 'off');
 		if (!is_object($off)) {
@@ -361,6 +434,32 @@ class heta extends eqLogic {
 		$on->save();
     }
 
+    // Crée la commande si elle n'existe pas (les réglages d'affichage existants sont conservés)
+    protected function createCmdIfMissing($logicalId, $name, $type, $subType, $options = array()) {
+        $cmd = $this->getCmd(null, $logicalId);
+        if (!is_object($cmd)) {
+            $cmd = new hetaCmd();
+            $cmd->setLogicalId($logicalId);
+            $cmd->setName(__($name, __FILE__));
+            $cmd->setIsVisible($options['visible'] ?? 0);
+            if (isset($options['unite'])) {
+                $cmd->setUnite($options['unite']);
+            }
+            if (!empty($options['historique'])) {
+                $cmd->setIsHistorized(1);
+            }
+            if (isset($options['template'])) {
+                $cmd->setTemplate('dashboard', $options['template']);
+                $cmd->setTemplate('mobile', $options['template']);
+            }
+        }
+        $cmd->setEqLogic_id($this->getId());
+        $cmd->setType($type);
+        $cmd->setSubType($subType);
+        $cmd->save();
+        return $cmd;
+    }
+
     public function preUpdate() {
         if ($this->getConfiguration('mac') == '') {
             throw new Exception(__('L\'adresse Mac ne peut être vide', __FILE__));    
@@ -371,7 +470,7 @@ class heta extends eqLogic {
     }
 
     public function postUpdate() {
- 		self::cron($this->getId());// lance la fonction cronHourly avec l’id de l’eqLogic
+ 		self::cron5($this->getId());// lance la fonction cronHourly avec l’id de l’eqLogic
     }
 
     public function preRemove() {        
@@ -400,64 +499,104 @@ class heta extends eqLogic {
      */
  
     public function cmdUpdate($pHetaValue) {
-    	$this->checkAndUpdateCmd('data', $pHetaValue->data);
-        $this->checkAndUpdateCmd('temperature', $pHetaValue->temperature);
-        $this->checkAndUpdateCmd('pellet', $pHetaValue->pellet);
-        $this->checkAndUpdateCmd('foyer', $pHetaValue->temperatureInterne);
-        $this->checkAndUpdateCmd('puissance', $pHetaValue->puissance);
-        $this->checkAndUpdateCmd('ventilation', $pHetaValue->ventilation); 
-        $this->checkAndUpdateCmd('consigne', $pHetaValue->consigne);
-        $this->checkAndUpdateCmd('thermostat', $pHetaValue->consigne);
-		$this->checkAndUpdateCmd('etatId', $pHetaValue->etatId);
-        $this->checkAndUpdateCmd('etat', $pHetaValue->etat);
-        $this->checkAndUpdateCmd('timeToService', $pHetaValue->statistic['tMaintenance']);
-        $this->checkAndUpdateCmd('allumage', $pHetaValue->statistic['nbAllumages']);
-        $this->checkAndUpdateCmd('secteur', $pHetaValue->statistic['tSecteur']);
-        $this->checkAndUpdateCmd('tChauffe', $pHetaValue->statistic['tChauffage']);
-        //$this->checkAndUpdateCmd('message', $pHetaValue->message);
-
-        if ($pHetaValue->etatId == 0) {
-            $actif = 0;
-        } else {
-            $actif = 1;
+        if (!is_object($pHetaValue) || empty($pHetaValue->valid)) {
+            log::add('heta', 'warning', $this->getHumanName() . ' pas de données valides : ' . (is_object($pHetaValue) ? $pHetaValue->message : ''));
+            return;
         }
-        $this->checkAndUpdateCmd('actif', $actif);
+        $stat = is_array($pHetaValue->statistic) ? $pHetaValue->statistic : array();
+        $this->updateIfSet('temperature',   $pHetaValue->temperature);
+        $this->updateIfSet('pellet',        $pHetaValue->pellet);
+        $this->updateIfSet('foyer',         $pHetaValue->temperatureInterne);
+        $this->updateIfSet('puissance',     $pHetaValue->puissance);
+        $this->updateIfSet('puissanceConsigne', $pHetaValue->puissanceConsigne ?? null);
+        $this->updateIfSet('ventilation',   $pHetaValue->ventilation);
+        $this->updateIfSet('consigne',      $pHetaValue->consigne);
+        $this->updateIfSet('etatId',        $pHetaValue->etatId);
+        $this->updateIfSet('etat',          $pHetaValue->etat);
+        $this->updateIfSet('timeToService', $stat['tMaintenance'] ?? null);
+        $this->updateIfSet('allumage',      $stat['nbAllumages'] ?? null);
+        $this->updateIfSet('secteur',       $stat['tSecteur'] ?? null);
+        $this->updateIfSet('tChauffe',      $stat['tChauffage'] ?? null);
+        $this->checkAndUpdateCmd('actif', $pHetaValue->actif ?? (($pHetaValue->etatId == 0) ? 0 : 1));
+        $this->updateIfSet('erreur',         $pHetaValue->erreur ?? null);
+        $this->updateIfSet('erreurCode',     $pHetaValue->erreurCode ?? null);
+        $this->updateIfSet('alerte',         $pHetaValue->alerte ?? null);
+        $this->updateIfSet('alerteCode',     $pHetaValue->alerteCode ?? null);
+        $this->updateIfSet('extracteur',     $pHetaValue->extracteur ?? null);
+        $this->updateIfSet('depression',     $pHetaValue->depression ?? null);
+        $this->updateIfSet('signalWifi',     $pHetaValue->signalWifi ?? null);
+        $this->updateIfSet('dernierContact', $pHetaValue->dernierContact ?? null);
+        $this->updateIfSet('ecartHorloge',   $pHetaValue->ecartHorloge ?? null);
+        $this->updateIfSet('timerActif',     $pHetaValue->timerActif ?? null);
+        $this->updateIfSet('surchauffes',    $stat['nbSurchauffe'] ?? null);
+        $this->updateIfSet('allumagesRates', $stat['nbErrAllumage'] ?? null);
     }
-    
+
+    protected function updateIfSet($pLogicalId, $pValue) {
+        if ($pValue !== null) {
+            $this->checkAndUpdateCmd($pLogicalId, $pValue);
+        }
+    }
+
+    protected function getFumis() {
+        return new fumis($this->getConfiguration('mac'), $this->getConfiguration('pin'));
+    }
+
     public function getHetaStatus() {
-        if ($this->getConfiguration('mac') == '') {
+        if ($this->getConfiguration('mac') == '' || $this->getConfiguration('pin') == '') {
             return;
         }
-        $mac = $this->getConfiguration("mac");
-        if ($this->getConfiguration('pin') == '') {
-            return;
-        }
-        $pin = $this->getConfiguration("pin");
-        $fumis = new fumis($mac, $pin);
-        $hetaStatus = $fumis->getStatus();
-        log::add('heta', 'debug', $this->getHumanName().' Status result: '. json_encode($hetaStatus));
+        $hetaStatus = $this->getFumis()->getStatus();
+        log::add('heta', 'debug', $this->getHumanName() . ' Status result: ' . json_encode($hetaStatus));
         $this->cmdUpdate($hetaStatus);
         $this->refreshWidget();
     }
-    
+
     public function setHetaConsigne($pOrder) {
-        $fumis = new fumis($this->getConfiguration("mac"), $this->getConfiguration("pin"));
-        $hetaStatus = $fumis->setOrder($pOrder);        
-        $this->cmdUpdate($hetaStatus);
+        $result = $this->getFumis()->setOrder($pOrder);
+        log::add('heta', 'debug', $this->getHumanName() . ' Consigne result: ' . json_encode($result));
     }
-    
+
+    public function setHetaPuissance($pPower) {
+        $result = $this->getFumis()->setPower($pPower);
+        log::add('heta', 'debug', $this->getHumanName() . ' Puissance result: ' . json_encode($result));
+        if (is_object($result) && !empty($result->valid)) {
+            $this->cmdUpdate($result);
+        }
+        $this->refreshWidget();
+    }
+
     public function setHetaStart() {
-        $fumis = new fumis($this->getConfiguration("mac"), $this->getConfiguration("pin"));
-        $fumis->start();
-        $status = $this->checkAndUpdateCmd('actif', true);
-        $this->cmdUpdate($status);
+        $result = $this->getFumis()->start();
+        log::add('heta', 'debug', $this->getHumanName() . ' Start result: ' . json_encode($result));
+        $this->checkAndUpdateCmd('actif', 1);
+        $this->refreshWidget();
     }
-    
+
+    public function setHetaTimer($pEnable) {
+        $result = $this->getFumis()->setTimer($pEnable);
+        log::add('heta', 'debug', $this->getHumanName() . ' Timer result: ' . json_encode($result));
+        if (is_object($result) && !empty($result->valid)) {
+            $this->cmdUpdate($result);
+        }
+        $this->refreshWidget();
+    }
+
+    public function syncHetaClock() {
+        $result = $this->getFumis()->syncClock();
+        log::add('heta', 'info', $this->getHumanName() . ' synchronisation de l\'horloge du poêle');
+        log::add('heta', 'debug', $this->getHumanName() . ' Horloge result: ' . json_encode($result));
+        if (is_object($result) && !empty($result->valid)) {
+            $this->cmdUpdate($result);
+        }
+        $this->refreshWidget();
+    }
+
     public function setHetaStop() {
-        $fumis = new fumis($this->getConfiguration("mac"), $this->getConfiguration("pin"));
-        $fumis->stop();
-        $status = $this->checkAndUpdateCmd('actif', false);
-        $this->cmdUpdate($status);
+        $result = $this->getFumis()->stop();
+        log::add('heta', 'debug', $this->getHumanName() . ' Stop result: ' . json_encode($result));
+        $this->checkAndUpdateCmd('actif', 0);
+        $this->refreshWidget();
     }
     /*     * **********************Getteur Setteur*************************** */
 }
@@ -497,6 +636,15 @@ class hetaCmd extends cmd {
                     $eqLogic->setHetaConsigne($_options['slider']);
                 }
                 break;
+            case 'setPuissance':
+                if (!isset($_options['slider']) || !is_numeric($_options['slider'])) {
+                    return;
+                }
+                $niveau = max(1, min(5, (int) round($_options['slider'])));
+                log::add('heta', 'info', $this->getHumanName() . ' puissance à ' . $niveau);
+                $eqLogic->getCmd(null, 'puissanceConsigne')->event($niveau);
+                $eqLogic->setHetaPuissance($niveau);
+                break;
             case 'on':
                 log::add('heta', 'info', $this->getHumanName(). ' démarrage');
                 $eqLogic->setHetaStart();
@@ -504,6 +652,18 @@ class hetaCmd extends cmd {
             case 'off':
                 log::add('heta', 'info', $this->getHumanName(). ' arret');
                 $eqLogic->setHetaStop();
+                break;
+            case 'syncHorloge':
+                log::add('heta', 'info', $this->getHumanName() . ' synchronisation horloge');
+                $eqLogic->syncHetaClock();
+                break;
+            case 'timerOn':
+                log::add('heta', 'info', $this->getHumanName() . ' programmation hebdo activée');
+                $eqLogic->setHetaTimer(true);
+                break;
+            case 'timerOff':
+                log::add('heta', 'info', $this->getHumanName() . ' programmation hebdo désactivée');
+                $eqLogic->setHetaTimer(false);
                 break;
             default:
                 log::add('heta', 'info', $this->getHumanName(). ' action inconnue : '.$action);

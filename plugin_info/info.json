@@ -1,20 +1,20 @@
 {
 	"id" : "heta",
 	"name" : "Heta",
-	"description" : "Plugin pilotage des poëles à pellet Heta, AustroFlamm équipés du boitier WiRCU",
+	"description" : "Pilotage des poêles à pellets équipés du boîtier Fumis WiRCU (Heta, Austroflamm...). Version maintenue compatible PHP 8, dérivée du plugin d'Emmanuel Deweerdt.",
 	"licence" : "AGPL",
-	"author" : "edeweerdt",
-	"require" : "3.0",
-	"version" : "1.0",
+	"author" : "edeweerdt, franck179",
+	"require" : "4.0",
+	"version" : "2.0",
 	"category" : "wellness",
 	"hasDependency" : false,
 	"hasOwnDeamon" : false,
 	"maxDependancyInstallTime" : 0,
-	"changelog" : "https://edeweerdt.github.io/jeedom_heta/#language#/changelog",
-	"documentation" : "https://edeweerdt.github.io/jeedom_heta/#language#/",
+	"changelog" : "https://github.com/franck179/jeedom_heta/blob/master/docs/fr_FR/changelog.md",
+	"documentation" : "https://github.com/franck179/jeedom_heta/blob/master/docs/fr_FR/index.md",
 	"link" : {
-		"forum":"Lien vers le forum",
-		"video" : "Lien vers une video"
+		"forum" : "",
+		"video" : ""
 	},
 	"language" : ["fr_FR"],
 	"compatibility" : ["miniplus","smart","rpi","docker","diy","mobile"]

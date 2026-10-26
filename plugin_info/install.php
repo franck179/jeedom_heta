@@ -23,7 +23,14 @@ function heta_install() {
 }
 
 function heta_update() {
-    
+    // Crée les commandes ajoutées par les nouvelles versions sur les équipements existants
+    foreach (eqLogic::byType('heta') as $eqLogic) {
+        try {
+            $eqLogic->save();
+        } catch (Exception $e) {
+            log::add('heta', 'error', 'Mise à jour de ' . $eqLogic->getHumanName() . ' : ' . $e->getMessage());
+        }
+    }
 }
 
 
