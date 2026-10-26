@@ -115,6 +115,8 @@ class heta extends eqLogic {
             $consigne->setIsVisible(0);
             $consigne->setUnite('°C');
 			$consigne->setName(__('Consigne', __FILE__));
+            $consigne->setTemplate('dashboard','tile');
+            $consigne->setTemplate('mobile','tile');
             $consigne->setConfiguration('historizeMode','none');
     		$consigne->setConfiguration('maxValue', 40);
     		$consigne->setConfiguration('minValue', 10);
@@ -143,8 +145,8 @@ class heta extends eqLogic {
 		if (!is_object($etat)) {
 			$etat = new hetaCmd();
     		$etat->setLogicalId('etat');
-            $etat->setTemplate('dashboard','line');
-            $etat->setTemplate('mobile','line');
+            $etat->setTemplate('dashboard','tile');
+            $etat->setTemplate('mobile','tile');
 			$etat->setName(__('Etat', __FILE__));
 		}
 		$etat->setEqLogic_id($this->getId());
@@ -206,6 +208,8 @@ class heta extends eqLogic {
             $pellet->setIsHistorized(true);
             $pellet->setUnite('%');
 			$pellet->setName(__('Pellet', __FILE__));
+            $pellet->setTemplate('dashboard','tile');
+            $pellet->setTemplate('mobile','tile');
 		}
 		$pellet->setEqLogic_id($this->getId());
 		$pellet->setType('info');
@@ -238,6 +242,8 @@ class heta extends eqLogic {
 			$puissance = new hetaCmd();
     		$puissance->setLogicalId('puissance');
             $puissance->setName(__('Puissance', __FILE__));
+            $puissance->setTemplate('dashboard','tile');
+            $puissance->setTemplate('mobile','tile');
 		}
 		$puissance->setEqLogic_id($this->getId());
 		$puissance->setType('info');
@@ -320,9 +326,9 @@ class heta extends eqLogic {
         $tChauffe->save();
         
         // --- Commandes ajoutées par patch-extras ---
-        $this->createCmdIfMissing('erreur', 'Erreur', 'info', 'string', array('visible' => 1, 'template' => 'line'));
+        $this->createCmdIfMissing('erreur', 'Erreur', 'info', 'string', array('visible' => 1, 'template' => 'tile'));
         $this->createCmdIfMissing('erreurCode', 'Code erreur', 'info', 'numeric', array('historique' => 1));
-        $this->createCmdIfMissing('alerte', 'Alerte', 'info', 'string', array('visible' => 1, 'template' => 'line'));
+        $this->createCmdIfMissing('alerte', 'Alerte', 'info', 'string', array('visible' => 1, 'template' => 'tile'));
         $this->createCmdIfMissing('alerteCode', 'Code alerte', 'info', 'numeric', array('historique' => 1));
         $fumees = $this->getCmd(null, 'fumees');
         if (is_object($fumees)) {
@@ -365,6 +371,7 @@ class heta extends eqLogic {
             $thermostat->setTemplate('mobile','thermostat');
             $thermostat->setUnite('°C');
 			$thermostat->setName(__('Thermostat', __FILE__));
+            $thermostat->setDisplay('parameters', array('step' => '0.2'));
     		$thermostat->setConfiguration('maxValue', 40);
     		$thermostat->setConfiguration('minValue', 10);
         }

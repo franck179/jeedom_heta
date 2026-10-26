@@ -70,4 +70,13 @@ Version maintenue dérivée du plugin original (compatibilité PHP 8 et nouvelle
 -   Création automatique des nouvelles commandes lors de la mise à jour
 -   Outils : mise en page du widget, alertes ntfy, script de test
 
+Version 2.1 - octobre 2026
+---
+
+-   Widget tuile par défaut pour Etat, Consigne, Pellet, Puissance, Erreur et Alerte
+-   Curseur du thermostat au pas de 0,2 °C
+-   Outil de mise en page : applique aussi les tuiles et le pas aux équipements existants, et
+    affiche le CSS de police réduite (Etat, Erreur, Alerte) avec les bons identifiants
+-   Documentation : affichage, remise en place après réinstallation, dépannage détaillé
+
 [Documentation](index.md)

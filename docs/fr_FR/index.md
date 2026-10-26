@@ -64,16 +64,119 @@ Remarques :
 - Non disponibles ou instables sur certains contrôleurs, donc non intégrés : mode éco, vitesse du
   ventilateur, démarrage / arrêt différés (à remplacer par des commandes On / Off programmées).
 
+Affichage
+=========
+
+Le plugin crée les infos principales en widget **tuile** (valeur sous l'étiquette) et le curseur
+**Thermostat** au pas de **0,2 °C** (comme l'application officielle).
+
+L'outil `tools/mise-en-page-heta.php` applique la mise en page conseillée aux équipements
+existants (ordre, commandes visibles, tuiles, pas du thermostat) :
+
+    sudo -u www-data php /var/www/html/plugins/heta/tools/mise-en-page-heta.php
+
+Disposition conseillée (configuration de l'équipement, disposition en tableau 4 × 3) :
+
+| | | |
+|---|---|---|
+| Etat | On | Off |
+| Température | Thermostat | Consigne |
+| Pellet | Régler puissance | Puissance |
+| Erreur | Alerte | |
+
+**Police réduite pour Etat, Erreur et Alerte** : l'outil affiche à la fin le CSS à coller dans
+Réglages > Système > Personnalisation avancée (case *Activer* cochée, partie CSS bureau), puis
+recharger avec Ctrl+F5. Exemple :
+
+```css
+/* Poêle : Etat, Erreur, Alerte en plus petit */
+.cmd[data-cmd_id="3423"] .state,  /* etat */
+.cmd[data-cmd_id="3470"] .state,  /* erreur */
+.cmd[data-cmd_id="3472"] .state   /* alerte */ {
+    font-size: 1.2em !important;
+}
+```
+
+Les identifiants (`data-cmd_id`) changent si l'équipement est recréé : relancer l'outil pour
+obtenir les nouveaux. Si la taille ne change pas, inspecter la valeur dans le navigateur
+(clic droit > Inspecter) pour vérifier sa classe CSS.
+
 Outils (dossier `tools/`)
 =========================
 
-- `mise-en-page-heta.php` : ordonne le widget et masque les commandes secondaires.
-  `sudo -u www-data php /var/www/html/plugins/heta/tools/mise-en-page-heta.php`
-- `alertes-poele.php` : code d'un bloc « Code » de scénario (programmé toutes les 5 min) qui
-  envoie des notifications [ntfy](https://ntfy.sh) en cas d'erreur, d'alerte, d'entretien proche,
-  de pellets bas ou de perte de connexion. Renseigner le nom du sujet ntfy en tête du code.
-- `test_fumis.py` : script de test à lancer sur un PC (bibliothèque Python `fumis`) pour vérifier
-  quelles fonctions acceptent un poêle donné. `pip install "fumis[cli]"` puis `python test_fumis.py`.
+- `mise-en-page-heta.php` : mise en page du widget (voir « Affichage »).
+- `alertes-poele.php` : code d'un bloc « Code » de scénario (programmé `*/5 * * * *`) qui
+  envoie des notifications [ntfy](https://ntfy.sh) en cas d'erreur (priorité urgente), d'alerte,
+  d'entretien proche (< 50 h), de pellets bas (< 15 %) ou de perte de connexion (> 30 min).
+  Chaque alerte n'est envoyée qu'une fois, puis un message de retour à la normale.
+  Renseigner le nom du sujet ntfy en tête du code (nom long et non devinable) ; passer `$TEST`
+  à `true` pour un essai. Le scénario mémorise son état dans des variables `alertePoele_…`.
+- `test_fumis.py` : script de test à lancer sur un PC pour vérifier quelles fonctions un poêle
+  accepte, sans passer par Jeedom (voir « Dépannage »).
+
+Remise en place après une réinstallation de Jeedom
+==================================================
+
+1. Activer la source GitHub et installer le plugin (voir « Installation »), l'activer.
+2. Recréer l'équipement (MAC, PIN), le sauvegarder ; vérifier le log `heta` (`"valid":true`).
+3. Lancer `tools/mise-en-page-heta.php`, coller le CSS affiché dans la personnalisation avancée.
+4. Recréer le scénario d'alertes ntfy à partir de `tools/alertes-poele.php`.
+5. Revoir les scénarios et le plugin Thermostat qui utilisent les commandes du poêle
+   (les identifiants des commandes ont changé).
+
+Dépannage
+=========
+
+Mettre le log du plugin en **Debug** (configuration du plugin). Chaque lecture produit une ligne
+`Fumis request` (PIN masqué) puis `Status result`.
+
+| Symptôme | Cause probable | Action |
+|---|---|---|
+| `Fumis Error : HTTP/1.1 401` | MAC ou PIN non transmis / erronés | Vérifier `username` dans la ligne `Fumis request` ; MAC en majuscules sans `:` |
+| `Fumis Error : HTTP/1.1 404` | Module WiRCU non connecté au cloud | Tester l'application officielle en 4G ; Wi-Fi 2,4 GHz |
+| `HTTP request failed!` sans code, au bout du timeout, en alternance avec des succès | Cloud Fumis lent ou module qui remonte mal ses données | En général passager ; le plugin garde les dernières valeurs et reprend seul (voir ci-dessous) |
+| État « Inconnu (n) » | Code d'état absent de la table | Compléter `const ETAT` dans `core/php/heta.inc.php` |
+| Erreur « Exxx code inconnu » | Code absent de la table | Compléter `const ERREURS` |
+| Écart d'horloge qui ne se corrige pas | Tâche horaire non exécutée ou commande refusée | Moteur de tâches : vérifier `heta::cronHourly` ; action *Synchroniser horloge* |
+| Le poêle s'allume « tout seul » | Programmation hebdomadaire interne active | Action *Programmation Off* |
+| Foyer toujours à 0 | Température non transmise par certains contrôleurs | Normal (info masquée) |
+| `Could not open input file` en lançant un outil copié dans le dossier personnel | `www-data` n'a pas accès au dossier personnel | Lancer l'outil depuis `/var/www/html/plugins/heta/tools/` ou depuis `/tmp` |
+
+**Erreurs intermittentes** : diagnostic à lancer pendant l'épisode, en SSH sur la box :
+
+```bash
+# Le cloud répond-il, et en combien de temps ? (attendre jusqu'à 90 s)
+for i in 1 2 3 4 5; do curl -4 -s -o /dev/null -m 90 -w "HTTP %{http_code} en %{time_total}s\n" -H "username: VOTREMAC" -H "password: VOTREPIN" https://api.fumis.si/v1/status/; sleep 20; done
+
+# Depuis combien de temps le module n'a-t-il pas contacté le cloud ? (normal : 0 à 60 s)
+curl -4 -s -m 30 -H "username: VOTREMAC" -H "password: VOTREPIN" https://api.fumis.si/v1/status/ \
+ | python3 -c "import json,sys; c=json.load(sys.stdin)['controller']; print('Dernier contact module il y a', c['currentTime']-c['stoveLastAvailability'], 's')"
+
+# Le module est-il stable sur le Wi-Fi local ? (IP : champ unit.ip de la réponse)
+ping -i 2 IP_DU_MODULE | while read l; do echo "$(date +%T) $l"; done
+```
+
+| Résultat | Interprétation | Action |
+|---|---|---|
+| `200` lents (20 à 60 s) | Le cloud attend le prochain contact du module | Monter `TIMEOUT` dans `heta.inc.php` |
+| `000` après 90 s | Panne ou surcharge côté Fumis | Attendre |
+| Dernier contact > 60 s et croissant | Le module ne joint plus le cloud | Redémarrer le module WiRCU |
+| Pertes au ping ou pics > 300 ms fréquents | Wi-Fi faible | IP réservée, SSID 2,4 GHz dédié, canal fixe 1/6/11, répéteur |
+
+**Test sans Jeedom (depuis un PC)** : la bibliothèque Python `fumis` permet de vérifier que le
+cloud et le poêle répondent, indépendamment du plugin.
+
+```powershell
+python -m venv fumis-test
+.\fumis-test\Scripts\Activate.ps1      # sortir avec : deactivate
+pip install "fumis[cli]"
+fumis info --mac VOTREMAC --password VOTREPIN
+python test_fumis.py                   # test complet des fonctions, avec rapport
+```
+
+`test_fumis.py` lit tout ce que remonte le poêle puis propose chaque action une par une (avec
+remise à l'état d'origine) et produit un rapport. Lancé poêle en marche en répondant « non »
+à toutes les actions, il sert aussi à repérer les valeurs qui varient en fonctionnement.
 
 Compatibilité
 =============
