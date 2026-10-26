@@ -135,8 +135,10 @@ class hetaResult {
 
         $c = $pData->controller;
         $this->actif = in_array($status, self::ETATS_ARRET) ? 0 : 1;
-        if ($this->actif == 0 && $this->puissanceKw !== null) {
-            $this->puissanceKw = 0;   // à l'arrêt, le contrôleur renvoie une valeur fixe (2 kW) qui n'est pas une chauffe
+        // La valeur kW n'est significative qu'en combustion : à l'arrêt, en attente éco, en
+        // refroidissement..., le contrôleur renvoie une valeur figée (2 ou 3 kW) sans chauffe réelle.
+        if ($status != 30 && $this->puissanceKw !== null) {
+            $this->puissanceKw = 0;
         }
         $this->erreurCode = $c->error ?? null;
         $this->erreur = self::libelle($this->erreurCode, self::ERREURS, 'E');

@@ -82,6 +82,7 @@ Version 2.1 - octobre 2026
 Version 2.2 - octobre 2026
 ---
 
--   Ajout : Puissance (kW), puissance de chauffe instantanée, historisée
+-   Ajout : Puissance (kW), puissance de chauffe en combustion (0 dans les autres états), historisée
+-   Documentation : modulation, mode éco, cycles de nettoyage
 
 [Documentation](index.md)

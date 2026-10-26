@@ -47,7 +47,7 @@ Commandes
 | Température, Consigne, Thermostat | info / action | Température ambiante (sonde du poêle) et consigne |
 | On, Off, Actif, Etat | action / info | Marche, arrêt, état détaillé (14 états) |
 | Régler puissance, Puissance consigne, Puissance | action / info | Puissance maximale demandée (1 à 5) et allure réellement appliquée (1 à 5) |
-| Puissance (kW) | info | Puissance de chauffe instantanée annoncée par le contrôleur, ramenée à 0 poêle éteint (historisée) |
+| Puissance (kW) | info | Puissance de chauffe annoncée par le contrôleur en combustion ; 0 dans les autres états, où le contrôleur renvoie une valeur figée (historisée) |
 | Pellet | info | Niveau estimé du réservoir (%) |
 | Erreur, Code erreur, Alerte, Code alerte | info | Erreurs (E1xx, E2xx) et alertes (A0xx) du poêle, avec libellé |
 | Maintenance, Allumages, Allumages ratés, Surchauffes, Chauffage, Secteur | info | Statistiques et heures avant entretien |
@@ -58,8 +58,14 @@ Commandes
 
 Remarques :
 
-- La puissance réglée est un **plafond** : le poêle module lui-même son allure en approchant de
-  la consigne. *Puissance (kW)* suit cette modulation plus finement que l'allure (par paliers).
+- La puissance réglée est un **plafond** : en combustion, le poêle module lui-même sa puissance
+  (environ 6 kW loin de la consigne, 3 kW au minimum). *Puissance (kW)* est le meilleur indicateur
+  de cette modulation ; l'info *Puissance* (allure 1 à 5) n'est pas fiable sur certains contrôleurs.
+- Le poêle ne s'arrête pas seul au-dessus de la consigne si son **mode éco** est désactivé : il
+  reste au minimum. Le mode éco se règle dans l'application officielle (seuils d'extinction et de
+  redémarrage) ; l'API ne permet pas de le modifier.
+- Toutes les 30 minutes environ, un **nettoyage automatique** du creuset fait doubler l'extracteur
+  et tripler la dépression pendant 1 à 2 minutes (puissance à 2 kW) : à ignorer dans les analyses.
 - Estimation de la consommation : l'énergie (moyenne de *Puissance (kW)* × durée de chauffe,
   en kWh) divisée par ~4,8 kWh/kg donne les kilos de pellets brûlés (ordre de grandeur).
 - La sonde d'ambiance du poêle est influencée par l'appareil (plus haute en chauffe, plus basse à
